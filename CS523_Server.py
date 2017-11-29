@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from flask import Flask, request, jsonify
+import rsa
 
 
 def genRSAKeyPair():
@@ -9,7 +10,7 @@ def genRSAKeyPair():
     with open("privateKey.pem","w+") as privKeyFile:
         privKeyFile.write(privKey.save_pkcs1(format='PEM'))
 
-def loadPublicKey()
+def loadPublicKey():
     with open("publicKey.pem","rb") as pubKeyFile:
         rawKey = pubKeyFile.read()
         pubKey = rsa.PublicKey.load_pkcs1(rawKey)
@@ -39,26 +40,14 @@ tasks = [
     }
 ]
 
-@app.route('/tasks', methods=['GET','POST']) # route() decorator is used to bind a function to a URL. in this case, the function is triggered with URL:http//127.0.0.1:5000/tasks
+@app.route('/tasks', methods=['GET','POST'])
 def get_tasks():
     if (request.method == 'GET'):
-        return jsonify({'tasks': tasks}) #returns the message we want to display in the user’s browser.
+        return jsonify({'tasks': tasks})
     elif (request.method == 'POST'):
         data = request.data
         print data
         return 'POST'
 
 if __name__ == '__main__':
-    app.run(debug=True)
-
-
-# request.data Contains the incoming request data as string in case it came with a mimetype Flask does not handle.
-# request.args: the key/value pairs in the URL query string
-# request.form: the key/value pairs in the body, from a HTML post form, or JavaScript request that is not JSON encoded
-# request.files: the files in the body, which Flask keeps separate from form. HTML forms must use enctype=multipart/form-data or files will not be uploaded.
-# request.values: combined args and form, preferring args if keys overlap
-
-test the server: curl -H "Content-type: application/json" -X POST http://127.0.0.1:5000/messages -d '{"message":"Hello Data"}'
-# When sending data via a POST or PUT request, two common formats (specified via the Content-Type header) are:
-#application/json
-#application/x-www-form-urlencoded
+    app.run(host='0.0.0.0')
