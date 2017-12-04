@@ -7,7 +7,7 @@ def genRSAKeyPair():
     with open("privateKey.pem","w+") as privKeyFile:
         privKeyFile.write(privKey.save_pkcs1(format='PEM'))
 
-def loadPublicKey()
+def loadPublicKey():
     with open("publicKey.pem","rb") as pubKeyFile:
         rawKey = pubKeyFile.read()
         pubKey = rsa.PublicKey.load_pkcs1(rawKey)
