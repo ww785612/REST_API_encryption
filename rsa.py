@@ -28,3 +28,10 @@ cryptedPkt = rsa.encrypt(message, pubKey)
 print(cryptedPkt)
 decryptedMsg = rsa.decrypt(cryptedPkt, privKey)
 print(decryptedMsg)
+
+signature = rsa.sign(message, privKey, 'SHA-1')
+verificationResult = rsa.verify(message, signature, pubKey) # should be true
+if(verificationResult):
+    print("verification success")
+else:
+    print("verification failed")
