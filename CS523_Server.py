@@ -1,25 +1,28 @@
 #!/usr/bin/env python
-from flask import Flask, request, json
+from flask import Flask, request
+import json
 import rsa
+import base64
 
+json_db = {}
 
 def genRSAKeyPair():
-    (pubKey,privKey) = rsa.newkeys(512)
+    (pubKey,privKey) = rsa.newkeys(4096)
     with open("publicKey.pem","w+") as pubKeyFile:
         pubKeyFile.write(pubKey.save_pkcs1(format='PEM'))
     with open("privateKey.pem","w+") as privKeyFile:
         privKeyFile.write(privKey.save_pkcs1(format='PEM'))
 #enddef
 
-def loadPublicKey():
-    with open("publicKey.pem","rb") as pubKeyFile:
+def loadPublicKey(pubk):
+    with open(pubk,"rb") as pubKeyFile:
         rawKey = pubKeyFile.read()
         pubKey = rsa.PublicKey.load_pkcs1(rawKey)
     return pubKey
 #enddef
 
-def loadPrivateKey():
-    with open("privateKey.pem","rb") as privKeyFile:
+def loadPrivateKey(prik):
+    with open(prik,"rb") as privKeyFile:
         rawKey = privKeyFile.read()
         privKey = rsa.PrivateKey.load_pkcs1(rawKey)
     return privKey
@@ -29,92 +32,119 @@ def parser(m):
     mtype = m['type']
 
     if mtype == 1:
-        step_one(m['message'])
+        step_one(m['payload'])
     elif mtype == 2: #emulating publisher-messenger protocol
-        step_two(m['message'])
+        step_two(m['payload'])
     elif mtype == 4:
-        step_four(m['message'])
+        step_four(m['payload'])
     elif mtype == 5:
-        step_five(m['message'])
-    else:
-        print '?'
+        step_five(m['payload'])
 #enddef
 
 def step_one(m):
     #decrypt message with my private key
-    pubKey = loadPublicKey()
-    privKey = loadPrivateKey()
-    decrypted = privKey.decrypt(m)
-    dec_m = json.loads(decrypted)      
+    pubKey = loadPublicKey("hb_keys/publicKey.pem")
+    privKey = loadPrivateKey("hb_keys/privateKey.pem")
 
-    #decrypt source's pubkey with my public key
-    src_key_string = pubKey.decrypt(dec_m['K_O'])
-    src_key = rsa.PublicKey.load_pkcs1(source_key)
+    decrypted = rsa.decrypt(base64.decodestring(m),privKey)
     
-    #decrypt DOT with source's pubkey
-    dot = src_key.decrypt(dec_m['DOT'])
 
-    #TODO: parse dot
 
-    #TODO: send notification to app
+    #verify source's pubkey with my public key
+    K_O = base64.decodestring(decrypted['K_O'])
+    sig = base64.decodestring(decrypted['user_signed_source_public_key'])
+    rsa.verify(K_O,sig,pubKey)
+    
+    src_key = rsa.PublicKey.load_pkcs1(K_O)
+    
+    #verify DOT with source's pubkey
+    rsa.verify(decrypted['DOT'],decrypted['DOT_sig'],src_key)
 
-    #TODO: store this DOT (id, owner's pubkey, metadata, DAP) DAP has url, contact info, instructions, physical location
-    return 1
+    dot = m["DOT"]
+    json_db[m['Data_ID']] = json.loads(dot['metadata'])
 #enddef
 
 def step_two(m):
-    #decrypt message with requester's public key
+    #verify message with requester's public key
     req_key = rsa.PublicKey.load_pkcs1(m['K_R'])
-    decrypted = req_key.decrypt(m['request'])
-    
-    #TODO: compare two keys
-    req_key_v = decrypted['K_R']
+    try:
+        rsa.verify(m['lhs'],m['lhs_hash'],req_key)
+    except VerificationError:
+        print "request signature does not match"
+        return
 
-    #decrypt RT using K_E1
-    my_key = rsa.PublicKey.load_pkcs1(decrypted['K_E1'])
-    r_and_f = my_key.decrypt(decrypted['RT_and_feedback'])
-    RT = req_key.decrypt(r_and_f['RT'])
+    #TODO: compare two keys
+    if m['lhs']['K_R'] != m['K_R']:
+        print "key K_R does not match"
+        return
+
+    #verify RT and feedback using K_E1
+    
+    e_key = rsa.PublicKey.load_pkcs1(m['lhs']['K_E1'])
+    try:
+        rsa.verify(m['lhs']['RT_and_feedback'],m['hash'])
+    except VerificationError:
+        print "verification error!"
+        return
+
+    RT = req_key.decrypt(r_and_f['lhs']['RT_and_feedback']['RT'])
 
     #TODO: see if request fits with existing policy
-    #TODO: if so, process it
     
-    #TODO: if not, ask app
-
-
-    return 2
+    json_db[RT['Request_ID']] = RT
 #enddef
 
 def step_five(m):
-    #decrypt using K_3O
-    pubKey = loadPublicKey()
-    privKey = loadPrivateKey()
-    result = privKey.decrypt(m)
+    #decrypt using K_O3
+    pubKey = loadPublicKey("hb_keys/publicKey3.pem")
+    privKey = loadPrivateKey("hb_keys/privateKey3.pem")
+    result = rsa.decrypt(m,privKey)
+    result['DOT'][metadata]
 
-    #check if this matches with what I did
+    #TODO: check if this matches with what I did
     
     return 5
 #enddef
 
 app = Flask(__name__) # create an instance of the Flask class
 
-@app.route('/inner', methods=['POST'])
-def listen():
+@app.route('/notify', methods=['POST'])
+def tell():
     if (request.method == 'POST'):
-        data = request.data
-        message = json.loads(data)
+        session = request.form
+        temp = json.loads(list(session)[0])
+        print temp
+        if temp['username'] == 'Aravind' and temp['password'] == 'Sagar':
+            print "log in successful"
+            return json.dumps(json_db)
 #enddef
 
-@app.route('/outer', methods=['POST'])
+@app.route('/actions', methods=['POST'])
+def listen():
+    if (request.method == 'POST'):
+        session = request.form
+        temp = json.loads(list(session)[0])
+        if (temp['username'] == 'Aravind' and temp['password'] == 'Sagar'):
+            print "log in successful"
+            policy = json.loads(temp['actions'])
+            for a in policy:
+                
+                return json.dumps(json_db)
+
+@app.route('/dmp', methods=['POST'])
 def receive_message():
     if (request.method == 'POST'):
-        data = request.data
-        message = json.loads(data)
-        print message
-        parser(message)
-        src_addr = request.remote_addr
+        print request
+        session = request.form
+        print json.dumps(session)
+        #print json.loads(list(session)[0])
+        #message = json.loads(data)
+        #print message
+        #parser(message)
+        #src_addr = request.remote_addr
         return 'POST'
 #enddef
 
 if __name__ == '__main__':
-    #TODO: build sql db
-    app.run(host='0.0.0.0')
+    
+    app.run(host='0.0.0.0', ssl_context=('cert.pem','key.pem'))
