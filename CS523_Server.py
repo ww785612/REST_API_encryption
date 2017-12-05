@@ -4,7 +4,8 @@ import json
 import rsa
 import base64
 
-json_db = {}
+json_db = {"device": [{"ID": 0, "data size": 15000, "location": "Home", "type": "Camera", "name": "Living room camera"}, {"ID": 1, "data size": 120, "location": "varying", "type": "GPS", "name": "Phone location"}, {"ID": 2, "data size": 25, "location": "Home", "type": "temperature", "name": "Home thermostat"}], "deviceSummary": [{"ID": 0, "access duration": "access to realtime data", "device ID": 0}, {"ID": 1, "access duration": "full access", "device ID": 0}, {"ID": 2, "access duration": "access to hourly average", "device ID": 2}], "pendingDataRequest": [{"ID": 3, "access end date": "12/5/2017", "access start date": "12/5/2017", "deviceSummary ID": 2, "requester ID": 1}], "grantedDataRequest": [{"ID": 0, "access end date": "12/5/2017", "access start date": "12/5/2017", "deviceSummary ID": 0, "requester ID": 0}, {"ID": 1, "access end date": "12/5/2017", "access start date": "12/5/2017", "deviceSummary ID": 1, "requester ID": 1}, {"ID": 2, "access end date": "12/5/2017", "access start date": "12/5/2017", "deviceSummary ID": 2, "requester ID": 2}], "requester": [{"ID": 0, "public key": "ABR", "name": "Anti-intruder app"}, {"ID": 1, "public key": "BLA", "name": "Google Photos"}, {"ID": 2, "public key": "HAH", "name": "Smarthome app"}]}
+
 
 def genRSAKeyPair():
     (pubKey,privKey) = rsa.newkeys(4096)
