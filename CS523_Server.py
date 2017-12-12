@@ -3,17 +3,15 @@ from flask import Flask, request
 import json
 import rsa
 import base64
+import copy
 
-json_db = {"device": [{"ID": 0, "data size": 15000, "location": "Home", "type": "Camera", "name": "Living room camera"}, {"ID": 1, "data size": 120, "location": "varying", "type": "GPS", "name": "Phone location"}, {"ID": 2, "data size": 25, "location": "Home", "type": "temperature", "name": "Home thermostat"}], "deviceSummary": [{"ID": 0, "access duration": "access to realtime data", "device ID": 0}, {"ID": 1, "access duration": "full access", "device ID": 0}, {"ID": 2, "access duration": "access to hourly average", "device ID": 2}], "pendingDataRequest": [{"ID": 3, "access end date": "12/5/2017", "access start date": "12/5/2017", "deviceSummary ID": 2, "requester ID": 1}], "grantedDataRequest": [{"ID": 0, "access end date": "12/5/2017", "access start date": "12/5/2017", "deviceSummary ID": 0, "requester ID": 0}, {"ID": 1, "access end date": "12/5/2017", "access start date": "12/5/2017", "deviceSummary ID": 1, "requester ID": 1}, {"ID": 2, "access end date": "12/5/2017", "access start date": "12/5/2017", "deviceSummary ID": 2, "requester ID": 2}], "requester": [{"ID": 0, "public key": "ABR", "name": "Anti-intruder app"}, {"ID": 1, "public key": "BLA", "name": "Google Photos"}, {"ID": 2, "public key": "HAH", "name": "Smarthome app"}]}
+with open("db.json", "r") as json_data:
+    json_db = json.load(json_data)
+    json_data.close()
 
-
-def genRSAKeyPair():
-    (pubKey,privKey) = rsa.newkeys(4096)
-    with open("publicKey.pem","w+") as pubKeyFile:
-        pubKeyFile.write(pubKey.save_pkcs1(format='PEM'))
-    with open("privateKey.pem","w+") as privKeyFile:
-        privKeyFile.write(privKey.save_pkcs1(format='PEM'))
-#enddef
+with open("auth.json", "r") as auth_data:
+    auth_db = json.load(auth_data)
+    json_data.close()
 
 def loadPublicKey(pubk):
     with open(pubk,"rb") as pubKeyFile:
@@ -40,6 +38,8 @@ def parser(m):
         step_four(m['payload'])
     elif mtype == 5:
         step_five(m['payload'])
+    else:
+        return "invalid message type"
 #enddef
 
 def step_one(m):
@@ -63,6 +63,8 @@ def step_one(m):
 
     dot = m["DOT"]
     json_db[m['Data_ID']] = json.loads(dot['metadata'])
+    return
+
 #enddef
 
 def step_two(m):
@@ -107,45 +109,76 @@ def step_five(m):
     return 5
 #enddef
 
+def auth(u,p):
+    for i in auth_db["creds"]:
+        if i["username"] == u and i["password"] == p:
+            return true
+    
+    return false
+#enddef
+
 app = Flask(__name__) # create an instance of the Flask class
 
-@app.route('/notify', methods=['POST'])
+@app.route('/')
+def hello():
+    return 'hello world!'
+
+@app.route('/notify')
 def tell():
     if (request.method == 'POST'):
         session = request.form
         temp = json.loads(list(session)[0])
         print temp
-        if temp['username'] == 'Aravind' and temp['password'] == 'Sagar':
+        username = temp['username']
+        password = temp['password']
+        if auth(username, password) is true:
             print "log in successful"
             return json.dumps(json_db)
+        else:
+            return "authentication failed"
+
+    return "invalid method"
 #enddef
 
-@app.route('/actions', methods=['POST'])
+@app.route('/actions')
 def listen():
     if (request.method == 'POST'):
         session = request.form
         temp = json.loads(list(session)[0])
-        if (temp['username'] == 'Aravind' and temp['password'] == 'Sagar'):
+        username = temp['username']
+        password = temp['password']
+        if auth(username,password) is true:
             print "log in successful"
-            policy = json.loads(temp['actions'])
-            for a in policy:
-                
-                return json.dumps(json_db)
+            policy = temp['action']
+            r_id = temp['request_id']
+            for i in json_db[temp["type"]]:
+                if i["ID"] == r_id:
+                    item = i
+            new_one = copy.deepcopy(item)
+            if policy == "accept":
+                json_db["grantedDataRequest"].append(new_one)
+                json_db[temp["type"]].remove(item)
+            else:
+                json_db["deniedDataRequest"].append(new_one)
+                json_db[temp["type"]].remove(item)
+            with open("db.json", "w") as jsonFile:
+                json.dump(json_db, jsonFile)
+                jsonFile.close()
+        else:
+            return "authentication failed"
+            
+    return "invalid method"
+#enddef
 
-@app.route('/dmp', methods=['POST'])
+@app.route('/dmp')
 def receive_message():
     if (request.method == 'POST'):
-        print request
-        session = request.form
-        print json.dumps(session)
-        #print json.loads(list(session)[0])
-        #message = json.loads(data)
-        #print message
-        #parser(message)
-        #src_addr = request.remote_addr
-        return 'POST'
+        print request.form
+        for i in request.form:
+            print i
+
+    return "invalid method"
 #enddef
 
 if __name__ == '__main__':
-    
     app.run(host='0.0.0.0', ssl_context=('cert.pem','key.pem'))
