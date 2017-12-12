@@ -5,11 +5,11 @@ import rsa
 import base64
 import copy
 
-with open("db.json", "r") as json_data:
+with open("db/db.json", "r") as json_data:
     json_db = json.load(json_data)
     json_data.close()
 
-with open("auth.json", "r") as auth_data:
+with open("db/auth.json", "r") as auth_data:
     auth_db = json.load(auth_data)
     json_data.close()
 
@@ -181,4 +181,4 @@ def receive_message():
 #enddef
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', ssl_context=('cert.pem','key.pem'))
+    app.run(host='0.0.0.0', ssl_context=('cert/cert.pem','cert/key.pem'))
