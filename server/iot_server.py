@@ -7,10 +7,6 @@ from flaskext.mysql import MySQL
 
 mysql = MySQL()
 
-with open("/home/ubuntu/server/server/db/db.json", "r") as json_data:
-    json_db = json.load(json_data)
-    json_data.close()
-
 def parser(m):
     mtype = m['type']
 
@@ -70,29 +66,53 @@ def auth(u,p):
 
 def db_to_json():
     output = dict()
-    columnNames = ["device", "deviceSummary", "deniedDataRequest", "grantedDataRequest", "pendingDataRequest", "requester", "dataSource"]
-    rowNames = [["ID","dataSize","location","name","srcID","type"],
+    tableNames = ["device", "deviceSummary", "deniedDataRequest", "grantedDataRequest", "pendingDataRequest", "requester", "dataSource"]
+    columnNames = [["ID","dataSize","location","name","srcID","type"],
     ["ID","accessDuration","deviceID"],
     ["ID", "accessEndDate", "accessStartDate", "deviceSummaryID", "requesterID"],
     ["ID", "accessEndDate", "accessStartDate", "deviceSummaryID", "requesterID"],
     ["ID", "accessEndDate", "accessStartDate", "deviceSummaryID", "requesterID"],
     ["ID", "name", "publicKey"],
-    ["name", "src_ID"]]
+    ["name", "srcID"]]
 
-    c_length = len(columnNames)
+    t_length = len(tableNames)
     cursor = mysql.connect().cursor()
-    for i in range(0,c_length):
-        c = columnNames[i]
-        cursor.execute("SELECT * FROM "+ c)
+    for i in range(0,t_length):
+        t = tableNames[i]
+        cursor.execute("SELECT * FROM "+ t)
         data = cursor.fetchall()
-        one_col = dict()
-        r_length = len(rowNames[i])
-        for j in range(0,r_length):
-            one_col[rowNames[i][j]] = data[j]
-        output[c] = one_col
+        output[t] = []
+        for r in data:
+            one_col = dict()
+            c_length = len(columnNames[i])
+            for j in range(0,c_length):
+                one_col[columnNames[i][j]] = r[j]
+            output[t].append(one_col)
 
     return json.dumps(output)
 #enddef
+
+def handle_order(t_name, r_id, policy):
+    cnx = mysql.connect()
+    cursor = cnx.cursor()
+    print "t_name: "+t_name
+    print "r_id: "+str(r_id)
+    print "policy: "+policy
+    cursor.execute("SELECT * FROM "+t_name+" WHERE ID = "+str(r_id))
+    data = cursor.fetchone()
+    if not data:
+        return "wrong enforcement. no such request exists"
+    if policy == "accept":
+        cursor.execute("INSERT INTO grantedDataRequest SELECT * FROM "+t_name+" WHERE ID = "+str(r_id))
+    else:
+        cursor.execute("INSERT INTO deniedDataRequest SELECT * FROM "+t_name+" WHERE ID = "+str(r_id))
+    
+    cursor.execute("DELETE FROM "+t_name+" WHERE ID = "+str(r_id))
+    cnx.commit()
+    
+    return "enforcement success"
+#enddef
+
 
 app = Flask(__name__) # create an instance of the Flask class
 
@@ -117,7 +137,6 @@ def tell():
         if auth(username, password) is True:
             print "log in successful"
             return db_to_json()
-            #return json.dumps(json_db)
         else:
             return "authentication failed"
 
@@ -135,19 +154,8 @@ def listen():
             print "log in successful"
             policy = temp['action']
             r_id = temp['request_id']
-            for i in json_db[temp["type"]]:
-                if i["ID"] == r_id:
-                    item = i
-            new_one = copy.deepcopy(item)
-            if policy == "accept":
-                json_db["grantedDataRequest"].append(new_one)
-                json_db[temp["type"]].remove(item)
-            else:
-                json_db["deniedDataRequest"].append(new_one)
-                json_db[temp["type"]].remove(item)
-            with open("db.json", "w") as jsonFile:
-                json.dump(json_db, jsonFile)
-                jsonFile.close()
+            prior = temp['type']
+            return handle_order(prior, r_id, policy)
         else:
             return "authentication failed"
             
@@ -166,4 +174,4 @@ def receive_message():
 
 if __name__ == '__main__':
     app.run()
-    #app.run(host='0.0.0.0')
+    #app.run(host='0.0.0.0', ssl_context=('cert/cert.pem','cert/key.pem'))
