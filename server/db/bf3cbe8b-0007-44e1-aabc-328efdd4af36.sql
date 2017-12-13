@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS device (
 ID INT,
-data size INT,
+`data size` INT,
 location VARCHAR(45),
 name VARCHAR(45),
 src_ID INT,
@@ -14,8 +14,8 @@ INSERT INTO device VALUES
 
 CREATE TABLE IF NOT EXISTS deviceSummary (
 ID INT,
-access duration VARCHAR(45),
-device ID INT
+`access duration` VARCHAR(45),
+`device ID` INT
 );
 
 INSERT INTO deviceSummary VALUES
@@ -25,10 +25,10 @@ INSERT INTO deviceSummary VALUES
 
 CREATE TABLE IF NOT EXISTS pendingDataRequest (
 ID INT,
-access end date VARCHAR(20),
-access start date VARCHAR(20),
-deviceSummary ID INT,
-requester ID INT
+`access end date` VARCHAR(20),
+`access start date` VARCHAR(20),
+`deviceSummary ID` INT,
+`requester ID` INT
 );
 
 INSERT INTO pendingDataRequest VALUES
@@ -36,10 +36,10 @@ INSERT INTO pendingDataRequest VALUES
 
 CREATE TABLE IF NOT EXISTS grantedDataRequest (
 ID INT,
-access end date VARCHAR(20),
-access start date VARCHAR(20),
-deviceSummary ID INT,
-requester ID INT
+`access end date` VARCHAR(20),
+`access start date` VARCHAR(20),
+`deviceSummary ID` INT,
+`requester ID` INT
 );
 
 INSERT INTO grantedDataRequest VALUES
@@ -50,16 +50,16 @@ INSERT INTO grantedDataRequest VALUES
 
 CREATE TABLE IF NOT EXISTS deniedDataRequest (
 ID INT,
-access end date VARCHAR(20),
-access start date VARCHAR(20),
-deviceSummary ID INT,
-requester ID INT
+`access end date` VARCHAR(20),
+`access start date` VARCHAR(20),
+`deviceSummary ID` INT,
+`requester ID` INT
 );
 
 CREATE TABLE IF NOT EXISTS requester (
 ID INT,
 name VARCHAR(45),
-public key VARCHAR(5000)
+`public key` VARCHAR(5000)
 );
 
 INSERT INTO requester VALUES
@@ -67,11 +67,11 @@ INSERT INTO requester VALUES
 (1,'Google Photos','BLA'),
 (2,'Smarthome app','HAH');
 
-CREATE TABLE IF NOT EXISTS data_source (
+CREATE TABLE IF NOT EXISTS `data source` (
 name VARCHAR(40),
 src_ID INT
 );
 
-INSERT INTO data_source VALUES
+INSERT INTO `data source` VALUES
 ('Illinois Security',0),
 ('JSM',1);
