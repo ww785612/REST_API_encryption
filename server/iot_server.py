@@ -70,14 +70,26 @@ def auth(u,p):
 
 def db_to_json():
     output = dict()
-    columnNames = ["dataSource", "deniedDataRequest", "device", "deviceSummary", "grantedDataRequest", "pendingDataRequest", "requester"]
-    rowNames = [["name", "src_ID"],["ID", "accessEndDate", "accessStartDate", "deviceSummaryID", "requesterID"]]
+    columnNames = ["device", "deviceSummary", "deniedDataRequest", "grantedDataRequest", "pendingDataRequest", "requester", "dataSource"]
+    rowNames = [["ID","dataSize","location","name","srcID","type"],
+    ["ID","accessDuration","deviceID"],
+    ["ID", "accessEndDate", "accessStartDate", "deviceSummaryID", "requesterID"],
+    ["ID", "accessEndDate", "accessStartDate", "deviceSummaryID", "requesterID"],
+    ["ID", "accessEndDate", "accessStartDate", "deviceSummaryID", "requesterID"],
+    ["ID", "name", "publicKey"],
+    ["name", "src_ID"]]
 
+    c_length = len(columnNames)
     cursor = mysql.connect().cursor()
-    for c in columnNames:
+    for i in range(0,c_length):
+        c = columnNames[i]
         cursor.execute("SELECT * FROM "+ c)
         data = cursor.fetchall()
-        output[c] = data
+        one_col = dict()
+        r_length = len(rowNames[i])
+        for j in range(0,r_length):
+            one_col[rowNames[i][j]] = data[j]
+        output[c] = one_col
 
     return json.dumps(output)
 #enddef
