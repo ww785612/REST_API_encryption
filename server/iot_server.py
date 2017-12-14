@@ -7,17 +7,15 @@ from flaskext.mysql import MySQL
 
 mysql = MySQL()
 
-def parser(m):
-    mtype = m['type']
-
+def parser(mtype,mpayload):
     if mtype == 1:
-        step_one(m['payload'])
+        step_one(mpayload)
     elif mtype == 2: #emulating publisher-messenger protocol
-        step_two(m['payload'])
+        step_two(mpayload)
     elif mtype == 4:
-        step_four(m['payload'])
+        step_four(mpayload)
     elif mtype == 5:
-        step_five(m['payload'])
+        step_five(mpayload)
     else:
         return "invalid message type"
 #enddef
@@ -126,16 +124,32 @@ mysql.init_app(app)
 def hello():
     return 'hello world!'
 
+@app.route('/pk', methods=['GET','POST'])
+def give_pk():
+    with open("/home/ubuntu/server/server/hb_keys/publicKey.pem", "r") as pubKeyFile:
+        rawKey = pubKeyFile.read()
+
+    if (request.method == 'POST'):
+        session = request.form
+        temp = json.loads(list(session)[0])
+        username = temp['username']
+        password = temp['password']
+        if auth(username, password) is True:
+            return rawKey
+        else:
+            return "authentication failed"
+
+    return "invalid method"
+
+
 @app.route('/notify', methods=['GET','POST'])
 def tell():
     if (request.method == 'POST'):
         session = request.form
         temp = json.loads(list(session)[0])
-        print temp
         username = temp['username']
         password = temp['password']
         if auth(username, password) is True:
-            print "log in successful"
             return db_to_json()
         else:
             return "authentication failed"
@@ -166,8 +180,8 @@ def listen():
 def receive_message():
     if (request.method == 'POST'):
         data = request.data
-        print data
-        return "success"
+        message = json.loads(data)
+        return parser(message['type'], message['payload'])
 
     return "invalid method"
 #enddef
