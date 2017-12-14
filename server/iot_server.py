@@ -1,6 +1,6 @@
 from flask import Flask, request
-import json
 from flaskext.mysql import MySQL
+import json
 
 from database import auth, db_to_json, handle_order
 from msg_protocol import parser, step_one, step_two, step_four, step_five
@@ -44,7 +44,7 @@ def tell():
         username = temp['username']
         password = temp['password']
         if auth(mysql, username, password) is True:
-            return db_to_json()
+            return db_to_json(mysql)
         else:
             return "authentication failed"
 
@@ -58,7 +58,7 @@ def listen():
         temp = json.loads(list(session)[0])
         username = temp['username']
         password = temp['password']
-        if auth(mysql, username,password) is True:
+        if auth(mysql, username, password) is True:
             print "log in successful"
             policy = temp['action']
             r_id = temp['request_id']
