@@ -3,50 +3,105 @@
 from flask import Flask, request, jsonify
 import requests
 import json
-import rsa
 import bson
 import os
+import Crypto
+from Crypto.PublicKey import RSA
 import base64
+import hashlib
+from Crypto import Random
+from Crypto.Cipher import AES
 
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.poolmanager import PoolManager
 
-def genRSAKeyPair():
-    (pubKey,privKey) = rsa.newkeys(512)
-    with open("data_requester_public_key.pem","w+") as pubKeyFile:
-        pubKeyFile.write(pubKey.save_pkcs1(format='PEM'))
-    with open("data_requester_private_key.pem","w+") as privKeyFile:
-        privKeyFile.write(privKey.save_pkcs1(format='PEM'))
+class AESCipher(object):
 
-def loadPublicKey():
-    with open("data_requester_public_key.pem","rb") as pubKeyFile:
-        rawKey = pubKeyFile.read()
-        pubKey = rsa.PublicKey.load_pkcs1(rawKey)
-    return pubKey
+    def __init__(self, clientName): 
+        self.bs = 32
+        self.clientName = clientName
+        self.key = clientName+'_AESKey'
+        self.key = hashlib.sha256(self.key.encode()).digest()
+
+    def saveKeyToFile(self):
+        #'wb' open file as binary file so we can write the key(hashed bytes) to it
+        with open(self.clientName+'_AESKey','wb') as f:
+          f.write(self.key)
+
+    def loadKeyfromFile(self):
+        #'rb' open file as binary file so we can read the key (hashed bytes) as bytes
+        with open(self.clientName+'_AESKey','wb') as f:
+          key = f.read()
+          return key
+
+    def updateKey(self, newKey):
+        self.key = newKey
+
+    def getKey(self):
+        return self.key
+
+    def encrypt(self, raw):
+        raw = self._pad(raw)
+        iv = Random.new().read(AES.block_size)
+        cipher = AES.new(self.key, AES.MODE_CBC, iv)
+        return base64.b64encode(iv + cipher.encrypt(raw))
+
+    def decrypt(self, enc):
+        enc = base64.b64decode(enc)
+        iv = enc[:AES.block_size]
+        cipher = AES.new(self.key, AES.MODE_CBC, iv)
+        return self._unpad(cipher.decrypt(enc[AES.block_size:])).decode('utf-8')
+
+    def _pad(self, s):
+        return s + (self.bs - len(s) % self.bs) * chr(self.bs - len(s) % self.bs)
+
+    @staticmethod
+    def _unpad(s):
+        return s[:-ord(s[len(s)-1:])]
+
+def generateKeyPair():
+    key = RSA.generate(2048) #generate pub and priv key
+    with open('data_requester_private.pem','w') as file:
+        file.write(key.exportKey('PEM').decode())
+    publickey = key.publickey() # pub key export for exchange
+    with open('data_requester_public.pem','w') as file:
+        file.write(publickey.exportKey('PEM').decode())
 
 def loadPrivateKey():
-    with open("data_requester_private_key.pem","rb") as privKeyFile:
-        rawKey = privKeyFile.read()
-        privKey = rsa.PrivateKey.load_pkcs1(rawKey)
-    return privKey
+    privKeyFile = open('data_requester_private.pem','r')
+    strPrivKey = privKeyFile.read()
+    loadedPrivKey = RSA.importKey(strPrivKey)
+    privKeyFile.close()
+    return loadedPrivKey
 
-def loadOwnerPublicKey():
-    with open("owner_public_key.pem","rb") as pubKeyFile:
-        rawKey = pubKeyFile.read()
-        pubKey = rsa.PublicKey.load_pkcs1(rawKey)
-    return pubKey
+def loadPublicKey():
+    pubKeyFile = open('data_requester_public.pem','r')
+    strPubKey = pubKeyFile.read()
+    loadedPubKey =  RSA.importKey(strPubKey)
+    pubKeyFile.close()
+    return loadedPubKey
 
 def loadOwnerPrivateKey():
-    with open("owner_private_key.pem","rb") as privKeyFile:
-        rawKey = privKeyFile.read()
-        privKey = rsa.PrivateKey.load_pkcs1(rawKey)
-    return privKey
+    privKeyFile = open('owner_private_key.pem','r')
+    strPrivKey = privKeyFile.read()
+    loadedPrivKey = RSA.importKey(strPrivKey)
+    privKeyFile.close()
+    return loadedPrivKey
 
+def loadOwnerPublicKey():
+    pubKeyFile = open('owner_public_key.pem','r')
+    strPubKey = pubKeyFile.read()
+    loadedPubKey =  RSA.importKey(strPubKey)
+    pubKeyFile.close()
+    return loadedPubKey
+
+# get requester's public key signed by owner
 def getOwnerSignature():
-    pubKey = loadPublicKey()
-    sPubKey = pubKey.save_pkcs1(format='PEM')
+    pubKeyFile = open('data_requester_public.pem','r')
+    strPubKey = pubKeyFile.read()
+    pubKeyFile.close()
     ownerPrivateKey = loadOwnerPrivateKey()
-    signature = rsa.sign(sPubKey, privKey, 'SHA-1')
+    signature = ownerPrivateKey.sign(strPubKey,32)
     return signature
 
 def get(url):
@@ -59,6 +114,20 @@ def get(url):
     # extracting data in json format
     data = r.json()
      
+    # printing the output
+    print("received:", data)
+    return data
+def owner_server_get(url):
+    # api-endpoint
+    URL = url
+    
+    certFile = 'owner_server_https.pem'
+    kwargs = dict(verify = certFile) if os.path.exists(certFile) else{}
+    # sending post request and saving response as response object
+    r = requests.get(url = URL, **kwargs)
+    
+    # extracting data in json format
+    data = r.json()
     # printing the output
     print("received:", data)
     return data
@@ -84,10 +153,11 @@ def owner_server_post(url, msgPkt):
 def send_msg2():
   pubKey = loadPublicKey()
   privKey = loadPrivateKey()
+  ownerPubKey = loadOwnerPublicKey()
   metadata = {
-    'deviceSummary ID':1,
-    'access start date':'12/5/2017',
-    'access end date':'12/5/2017'
+    'deviceSummaryID':1,
+    'accessStartDate':'12/5/2017',
+    'accessEndDate':'12/5/2017'
   }
 
   duration = {
@@ -97,17 +167,29 @@ def send_msg2():
 
   RT = {
   'name':'Anti-intruder app',
-  'request ID':4,
+  'requestID':4,
   'metadata':metadata,
   'duration':duration,
-  'requester public key':base64.encodestring(pubKey.save_pkcs1(format='PEM')).decode()
+  'requesterPublicKey':base64.encodestring(pubKey.exportKey('PEM')).decode()
   }
 
   msg2 = {'RT':RT,
-          'type':2}
-  jsonMsgPkt = json.dumps(msg2)
-  owner_server_post('https://35.167.25.135:5000/dmp', jsonMsgPkt)
-  # post('http://192.168.71.128:5000/tasks',jsonMsgPkt)
+          'type':2
+          }
+  jsonMsg2 = json.dumps(msg2)
+  
+  encryptedJsonMsg2 = ownerAESObj.encrypt(jsonMsg2)
+  encryptedAESKey = ownerPubKey.encrypt(ownerAESObj.getKey(), 32)
+  # print(type(encryptedAESKey))
+  msg2Pkt = {
+                'payload':encryptedJsonMsg2.decode(),
+                'AESKey':base64.encodestring(encryptedAESKey[0]).decode()
+              }
+  msg2JsonPkt = json.dumps(msg2Pkt)
+  
+
+  # owner_server_post('https://35.167.25.135:5000/dmp', jsonMsgPkt)
+  post('http://192.168.71.130:5000/tasks',msg2JsonPkt)
 # app = Flask(__name__) # create an instance of the Flask class
 
 # @app.route('/tasks', methods=['GET','POST'])
@@ -122,9 +204,11 @@ def send_msg2():
 # if __name__ == '__main__':
 #     app.run(host='0.0.0.0')
 
-# genRSAKeyPair()
+generateKeyPair()
+ownerAESObj = AESCipher('data_owner')
+# ownerAESObj.saveKey()
 send_msg2()
-
+# owner_server_get("https://35.167.25.135:5000")
 # jasonMsg1 = json.dumps({'msg1':msg1})
 
 # cryptedMsg1 = rsa.encrypt(jasonMsg1, pubKey)
