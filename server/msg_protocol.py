@@ -1,17 +1,22 @@
-def parser(mtype,mpayload):
+from Crypto.Cipher import AES
+from Crypto.PublicKey import RSA
+
+from flaskext.mysql import MySQL
+
+from database import register_request, register_do, verify_request
+
+def parser(mysql,mtype,mpayload):
     if mtype == 1:
-        step_one(mpayload)
+        return step_one(mysql,mpayload)
     elif mtype == 2: #emulating publisher-messenger protocol
-        step_two(mpayload)
-    elif mtype == 4:
-        step_four(mpayload)
+        return step_two(mysql,mpayload)
     elif mtype == 5:
-        step_five(mpayload)
+        return step_five(mysql,mpayload)
     else:
         return "invalid message type"
 #enddef
 
-def step_one(m):
+def step_one(mysql,m):
     #decrypt message with my private key
     
     #verify source's pubkey with my public key
@@ -20,7 +25,7 @@ def step_one(m):
     return 0
 #enddef
 
-def step_two(m):
+def step_two(mysql,m):
     #verify message with requester's public key
 
     #TODO: compare two keys
@@ -32,13 +37,12 @@ def step_two(m):
     return 0
 #enddef
 
-def step_four(m):
-    return 0
-
-def step_five(m):
+def step_five(mysql,m):
     #decrypt using K_O3
 
     #TODO: check if this matches with what I did
-    
-    return 0
+    if verify_request(mysql, json):
+        return True
+    else:
+        return False
 #enddef

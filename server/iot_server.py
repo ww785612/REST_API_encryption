@@ -3,7 +3,7 @@ from flaskext.mysql import MySQL
 import json
 
 from database import auth, db_to_json, handle_order
-from msg_protocol import parser, step_one, step_two, step_four, step_five
+from msg_protocol import parser, step_one, step_two, step_five
 
 app = Flask(__name__) # create an instance of the Flask class
 
@@ -76,7 +76,7 @@ def receive_message():
     if (request.method == 'POST'):
         data = request.data
         message = json.loads(data)
-        return parser(message['type'], message['payload'])
+        return parser(mysql, message['type'], message['payload'])
 
     return "invalid method"
 #enddef

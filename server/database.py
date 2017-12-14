@@ -1,7 +1,7 @@
 import json
 from flaskext.mysql import MySQL
 
-def auth(mysql, u,p):
+def auth(mysql,u,p):
     cursor = mysql.connect().cursor()
     cursor.execute("SELECT * from creds where username = %s and password = %s", [u,p])
     data = cursor.fetchone()
@@ -42,9 +42,6 @@ def db_to_json(mysql):
 def handle_order(mysql, t_name, r_id, policy):
     cnx = mysql.connect()
     cursor = cnx.cursor()
-    print "t_name: "+t_name
-    print "r_id: "+str(r_id)
-    print "policy: "+policy
     cursor.execute("SELECT * FROM "+t_name+" WHERE ID = "+str(r_id))
     data = cursor.fetchone()
     if not data:
@@ -59,3 +56,70 @@ def handle_order(mysql, t_name, r_id, policy):
     
     return "enforcement success"
 #enddef
+
+def register_do(mysql, json):
+    cnx = mysql.connect()
+    cursor = cnx.cursor()
+
+    dataSource = json["dataSource"]
+    device = json["device"]
+    deviceSummary = json["deviceSummary"]
+
+    dataSource_arr = [dataSource["name"], int(dataSource["srcID"])]
+    
+    device_arr = 
+    [int(device["ID"]), 
+    int(device["dataSize"]), 
+    device["location"], 
+    device["name"], 
+    int(device["srcID"]), 
+    device["type"]]
+    
+    deviceSummary_arr = 
+    [int(deviceSummary["ID"]),
+    deviceSummary["accessDuration"],
+    int(deviceSummary["deviceID"])]
+    
+    cursor.execute("INSERT INTO dataSource (name, srcID) VALUES (%s, %d)", dataSource_arr)
+    cursor.execute("INSERT INTO device (ID, dataSize, location, name, srcID, type) VALUES (%d, %d, %s, %s, %d, %s)", device_arr)
+    cursor.execute("INSERT INTO deviceSummary (ID, accessDuration, deviceID) VALUES (%d, %s, %d)", deviceSummary_arr)
+    cnx.commit()
+    return "data object registration success"
+
+def register_request(mysql, json):
+    cnx = mysql.connect()
+    cursor = cnx.cursor()
+
+    requester = json["requester"]
+    pendingDataRequest = json["pendingDataRequest"]
+
+    requester_arr = 
+    [int(requester["ID"]),
+    requester["name"],
+    requester["publicKey"]]
+
+    pendingDataRequest_arr = 
+    [int(pendingDataRequest["ID"]),
+    pendingDataRequest["accessEndDate"],
+    pendingDataRequest["accessStartDate"],
+    int(pendingDataRequest["deviceSummaryID"]),
+    int(pendingDataRequest["requesterID"])
+    ]
+
+    cursor.execute("INSERT INTO requester (ID, name, publicKey) VALUES (%d,%s,%s)", requester_arr)
+    cursor.execute("INSERT INTO pendingDataRequest (ID, accessEndDate, accessStartDate, deviceSummaryID, requesterID) VALUES (%d,%s,%s,%d,%d)", pendingDataRequest_arr)
+
+    cnx.commit()
+
+    return "request registration success"
+
+def verify_request(mysql, requestID):
+    cnx = mysql.connect()
+    cursor = cnx.cursor()
+
+    cursor.execute("SELECT * FROM grantedDataRequest WHERE ID = %d", [requestID])
+    data = cursor.fetchone()
+    if data is None:
+        return False
+    else:
+        return True
