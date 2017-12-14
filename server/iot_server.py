@@ -17,6 +17,7 @@ mysql.init_app(app)
 @app.route('/')
 def hello():
     return 'hello world!'
+#enddef
 
 @app.route('/pk', methods=['GET','POST'])
 def give_pk():
@@ -34,7 +35,7 @@ def give_pk():
             return "authentication failed"
 
     return "invalid method"
-
+#enddef
 
 @app.route('/notify', methods=['GET','POST'])
 def tell():

@@ -1,3 +1,4 @@
+import json
 from flaskext.mysql import MySQL
 
 def auth(mysql, u,p):
