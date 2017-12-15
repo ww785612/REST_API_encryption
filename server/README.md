@@ -1,6 +1,6 @@
 # Server-side Implementation of CS523 IoT UI Project
 
-Our server is implemented on top of following components. Please consider following components when setting up the server. We tested and verfied all components on Ubuntu 16.04 which is hosted by a micro-instance of Amazon EC2.
+Our server is implemented on top of following components. Please consider following components when setting up the server. We tested and verfied all components on Ubuntu 16.04 VM which is hosted by a micro-instance of Amazon EC2.
 
 ## Prerequisites
 
