@@ -2,6 +2,14 @@ import json
 from flaskext.mysql import MySQL
 
 def auth(mysql,u,p):
+    """
+    authenticates user credentials
+
+    @param mysql:   a mysql object for MySQL database
+    @param u:       username
+    @param p:       password
+    """
+
     cursor = mysql.connect().cursor()
     cursor.execute("SELECT * from creds where username = %s and password = %s", [u,p])
     data = cursor.fetchone()
@@ -12,6 +20,12 @@ def auth(mysql,u,p):
 #enddef
 
 def db_to_json(mysql):
+    """
+    grabs all entries in database and jsonify the data
+
+    @param mysql:   a mysql object for MySQL database
+    """
+
     output = dict()
     tableNames = ["device", "deviceSummary", "deniedDataRequest", "grantedDataRequest", "pendingDataRequest", "requester", "dataSource"]
     columnNames = [["ID","dataSize","location","name","srcID","type"],
@@ -24,12 +38,12 @@ def db_to_json(mysql):
 
     t_length = len(tableNames)
     cursor = mysql.connect().cursor()
-    for i in range(0,t_length):
+    for i in range(0,t_length): #for each table
         t = tableNames[i]
         cursor.execute("SELECT * FROM "+ t)
         data = cursor.fetchall()
         output[t] = []
-        for r in data:
+        for r in data: #for each column
             one_col = dict()
             c_length = len(columnNames[i])
             for j in range(0,c_length):
@@ -40,6 +54,15 @@ def db_to_json(mysql):
 #enddef
 
 def handle_order(mysql, t_name, r_id, policy):
+    """
+    enforce policy from Data Owner by moving data request from one table to another
+
+    @param mysql:   a mysql object for MySQL database
+    @param t_name:  name of table
+    @param r_id:    request ID
+    @param policy:  accept/deny
+    """
+
     cnx = mysql.connect()
     cursor = cnx.cursor()
     cursor.execute("SELECT * FROM "+t_name+" WHERE ID = "+str(r_id))
@@ -58,6 +81,13 @@ def handle_order(mysql, t_name, r_id, policy):
 #enddef
 
 def register_do(mysql, json):
+    """
+    helper function that registers data objects into MySQL DB
+
+    @param mysql:   a mysql object for MySQL database
+    @param json:    metadata that contains information for data source and device
+    """
+
     cnx = mysql.connect()
     cursor = cnx.cursor()
 
@@ -87,6 +117,13 @@ def register_do(mysql, json):
     return "data object registration success"
 
 def register_request(mysql, json):
+    """
+    helper function that registers data requests into MySQL DB
+
+    @param mysql:   a mysql object for MySQL database
+    @param json:    metadata that contains information for data request
+    """
+
     cnx = mysql.connect()
     cursor = cnx.cursor()
 
@@ -114,6 +151,13 @@ def register_request(mysql, json):
     return "request registration success"
 
 def verify_request(mysql, requestID):
+    """
+    helper function that verifies granted data requests 
+
+    @param mysql:       a mysql object for MySQL database
+    @param requestID:   the request ID that you want to verify    
+    """
+
     cnx = mysql.connect()
     cursor = cnx.cursor()
 
