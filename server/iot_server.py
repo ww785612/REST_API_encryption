@@ -93,4 +93,7 @@ def receive_message():
 
 if __name__ == '__main__':
     app.run()
+
+    #comment line above and uncomment line below if you run this code with HTTPS and without Apache
+
     #app.run(host='0.0.0.0', ssl_context=('cert/cert.pem','cert/key.pem'))
