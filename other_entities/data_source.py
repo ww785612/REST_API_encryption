@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 import requests
 import json
 import bson
+import base64
 import os
 import Crypto
 from Crypto.PublicKey import RSA
@@ -61,21 +62,21 @@ class AESCipher(object):
 
 def generateKeyPair():
     key = RSA.generate(2048) #generate pub and priv key
-    with open('data_requester_private.pem','w') as file:
+    with open('data_source_private_key.pem','w') as file:
         file.write(key.exportKey('PEM').decode())
     publickey = key.publickey() # pub key export for exchange
-    with open('data_requester_public.pem','w') as file:
+    with open('data_source_public_key.pem','w') as file:
         file.write(publickey.exportKey('PEM').decode())
 
 def loadPrivateKey():
-    privKeyFile = open('data_requester_private.pem','r')
+    privKeyFile = open('data_source_private_key.pem','r')
     strPrivKey = privKeyFile.read()
     loadedPrivKey = RSA.importKey(strPrivKey)
     privKeyFile.close()
     return loadedPrivKey
 
 def loadPublicKey():
-    pubKeyFile = open('data_requester_public.pem','r')
+    pubKeyFile = open('data_source_public_key.pem','r')
     strPubKey = pubKeyFile.read()
     loadedPubKey =  RSA.importKey(strPubKey)
     pubKeyFile.close()
@@ -95,13 +96,19 @@ def loadOwnerPublicKey():
     pubKeyFile.close()
     return loadedPubKey
 
-# get requester's public key signed by owner
-def getOwnerSignature():
+def loadRequesterPublicKey():
     pubKeyFile = open('data_requester_public.pem','r')
+    strPubKey = pubKeyFile.read()
+    loadedPubKey =  RSA.importKey(strPubKey)
+    pubKeyFile.close()
+    return loadedPubKey
+
+def getOwnerSignature():
+    pubKeyFile = open('data_source_public_key.pem','r')
     strPubKey = pubKeyFile.read()
     pubKeyFile.close()
     ownerPrivateKey = loadOwnerPrivateKey()
-    signature = ownerPrivateKey.sign(strPubKey,32)
+    signature = ownerPrivateKey.sign(strPubKey.encode(),32)
     return signature
 
 def get(url):
@@ -117,20 +124,6 @@ def get(url):
     # printing the output
     print("received:", data)
     return data
-def owner_server_get(url):
-    # api-endpoint
-    URL = url
-    
-    certFile = 'owner_server_https.pem'
-    kwargs = dict(verify = certFile) if os.path.exists(certFile) else{}
-    # sending post request and saving response as response object
-    r = requests.get(url = URL, **kwargs)
-    
-    # extracting data in json format
-    data = r.json()
-    # printing the output
-    print("received:", data)
-    return data
 
 #data is a list of dictionaries
 def post(url, msgPkt):
@@ -138,8 +131,9 @@ def post(url, msgPkt):
   API_ENDPOINT = url
   # sending post request and saving response as response object
   r = requests.post(url = API_ENDPOINT, data = msgPkt, verify='owner_server_https.pem')
-
+  
 def owner_server_post(url, msgPkt):
+  print(msgPkt)
   # defining the api-endpoint 
   API_ENDPOINT = url
   # binaryMsgPkt = bson.dumps(data)
@@ -150,46 +144,107 @@ def owner_server_post(url, msgPkt):
   # sending post request and saving response as response object
   r = requests.post(url = API_ENDPOINT, data = msgPkt, **kwargs)
 
-def send_msg2():
+def send_msg1():
+  ownerPubKey = loadOwnerPublicKey()
+  device = {
+    'name':'Living room camera',
+    'type':'Camera',
+    'location':'Home'
+  }
+
+  deviceSummary = {
+  'access duration':'access to realtime data'
+  }
+
+  metadata =  { 'device_summary_ID':1,
+                'start_data':'12/1/2017',
+                'end_data':'12/4/2017'
+              }
+  DOT = {
+          'Data_ID':1,
+          'K_O':ownerPubKey.exportKey('PEM').decode(),
+          'metadata':metadata,
+          'DAT':'http://192.168.116.131:5000/data_object'
+        }
+
+  ownerSignedPubKey = getOwnerSignature()
+
+  msg1 =  {
+            'DOT':DOT,
+            'ownerSignedSourcePubKey':ownerSignedPubKey,
+            'device':device,
+            'deviceSummary':deviceSummary,
+            'sourceName':'Storage Provider'
+          }
+  jsonMsg1 = json.dumps(msg1)
+  encryptedJsonMsg1 = ownerAESObj.encrypt(jsonMsg1)
+  encryptedAESKey = ownerPubKey.encrypt(ownerAESObj.getKey(), 32)
+
+  msgPkt =  {
+              
+              'payload': encryptedJsonMsg1.decode(),
+              'AESKey':base64.encodestring(encryptedAESKey[0]).decode(),
+              'type':1
+            }
+  jsonMsgPkt = json.dumps(msgPkt)
+  post('http://192.168.71.130:5000/tasks',jsonMsgPkt)
+  # owner_server_post('https://35.167.25.135:5000/dmp', jsonMsgPkt)
+
+
+def send_msg5():
   pubKey = loadPublicKey()
   privKey = loadPrivateKey()
+  requesterPubKey = loadRequesterPublicKey()
   ownerPubKey = loadOwnerPublicKey()
-  metadata = {
-    'deviceSummaryID':1,
-    'accessStartDate':'12/5/2017',
-    'accessEndDate':'12/5/2017'
+
+  device = {
+    'name':'Living room camera',
+    'type':'Camera',
+    'location':'Home'
   }
 
-  duration = {
-    'start':'12/5/2017',
-    'end':'12/5/2017'
+  deviceSummary = {
+  'access duration':'access to realtime data'
   }
 
-  RT = {
-  'name':'Anti-intruder app',
-  'requestID':4,
-  'metadata':metadata,
-  'duration':duration,
-  'requesterPublicKey':base64.encodestring(pubKey.exportKey('PEM')).decode()
-  }
-
-  msg2 = {'RT':RT,
-          'type':2
-          }
-  jsonMsg2 = json.dumps(msg2)
-  
-  encryptedJsonMsg2 = ownerAESObj.encrypt(jsonMsg2)
-  encryptedAESKey = ownerPubKey.encrypt(ownerAESObj.getKey(), 32)
-  # print(type(encryptedAESKey))
-  msg2Pkt = {
-                'payload':encryptedJsonMsg2.decode(),
-                'AESKey':base64.encodestring(encryptedAESKey[0]).decode()
+  metadata =  { 'device_summary_ID':1,
+                'start_data':'12/1/2017',
+                'end_data':'12/4/2017'
               }
-  msg2JsonPkt = json.dumps(msg2Pkt)
-  
+  DOT = {
+          'Data_ID':1,
+          'K_O':ownerPubKey.exportKey('PEM').decode(),
+          'metadata':metadata,
+          'DAT':'http://192.168.116.131:5000/data_object'
+        }
 
+  # the public lkeys are too long to sign
+  # signatureK_O = privKey.sign(ownerPubKey.exportKey('PEM'),32)
+  # signatureK_R = privKey.sign(requesterPubKey.exportKey('PEM'),32)
+  # print(len(ownerPubKey.exportKey('PEM')))
+  # print(pubKey.verify(requesterPubKey.exportKey('PEM'), signatureK_R))
+  msg5 = {
+    'DOT':DOT,
+    'sourcePublicKey':pubKey.exportKey('PEM').decode()
+  }
+  
+  jsonMsg5 = json.dumps(msg5)
+  encryptedJsonMsg5 = ownerAESObj.encrypt(jsonMsg5)
+  encryptedAESKey = ownerPubKey.encrypt(ownerAESObj.getKey(), 32)
+
+  msgPkt =  {
+              'payload': encryptedJsonMsg5.decode(),
+              'AESKey':base64.encodestring(encryptedAESKey[0]).decode(),
+              'type':5
+            }
+
+  jsonMsgPkt = json.dumps(msgPkt)
+  post('http://192.168.71.130:5000/tasks',jsonMsgPkt)
+
+  # print(jsonMsgPkt)
+  # post('http://192.168.71.130:5000/tasks',msg2JsonPkt)
   # owner_server_post('https://35.167.25.135:5000/dmp', jsonMsgPkt)
-  post('http://192.168.71.130:5000/tasks',msg2JsonPkt)
+
 # app = Flask(__name__) # create an instance of the Flask class
 
 # @app.route('/tasks', methods=['GET','POST'])
@@ -204,11 +259,12 @@ def send_msg2():
 # if __name__ == '__main__':
 #     app.run(host='0.0.0.0')
 
-generateKeyPair()
-ownerAESObj = AESCipher('data_owner')
-# ownerAESObj.saveKey()
-send_msg2()
-# owner_server_get("https://35.167.25.135:5000")
+# generateKeyPair()
+ownerAESObj = AESCipher('data_source')
+# ownerAESObj.saveKeyToFile()
+send_msg5()
+# send_msg5()
+
 # jasonMsg1 = json.dumps({'msg1':msg1})
 
 # cryptedMsg1 = rsa.encrypt(jasonMsg1, pubKey)
