@@ -146,6 +146,7 @@ def owner_server_post(url, msgPkt):
 
 def send_msg1():
   ownerPubKey = loadOwnerPublicKey()
+  pubKey = loadPublicKey()
   device = {
     'name':'Living room camera',
     'type':'Camera',
@@ -171,11 +172,13 @@ def send_msg1():
 
   msg1 =  {
             'DOT':DOT,
+            'sourcePubKey':base64.encodestring(pubKey.exportKey('PEM')).decode(),
             'ownerSignedSourcePubKey':ownerSignedPubKey,
             'device':device,
             'deviceSummary':deviceSummary,
             'sourceName':'Storage Provider'
           }
+          
   jsonMsg1 = json.dumps(msg1)
   encryptedJsonMsg1 = ownerAESObj.encrypt(jsonMsg1)
   encryptedAESKey = ownerPubKey.encrypt(ownerAESObj.getKey(), 32)
