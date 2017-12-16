@@ -85,9 +85,7 @@ def receive_message():
 
     if (request.method == 'POST'):
         data = request.data
-        message = json.loads(data)
-        print message
-        return parser(mysql, message['type'], message['payload'])
+        return parser(mysql, data)
 
     return "invalid method"
 #enddef
