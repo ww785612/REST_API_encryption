@@ -96,6 +96,20 @@ def loadOwnerPublicKey():
     pubKeyFile.close()
     return loadedPubKey
 
+def loadOwnerPublicKey2():
+    pubKeyFile = open('owner_public_key2.pem','r')
+    strPubKey = pubKeyFile.read()
+    loadedPubKey =  RSA.importKey(strPubKey)
+    pubKeyFile.close()
+    return loadedPubKey
+
+def loadOwnerPublicKey2():
+    pubKeyFile = open('owner_public_key3.pem','r')
+    strPubKey = pubKeyFile.read()
+    loadedPubKey =  RSA.importKey(strPubKey)
+    pubKeyFile.close()
+    return loadedPubKey
+
 def loadRequesterPublicKey():
     pubKeyFile = open('data_requester_public.pem','r')
     strPubKey = pubKeyFile.read()
@@ -159,10 +173,12 @@ def send_msg1():
 
   metadata =  { 'device_summary_ID':1,
                 'start_data':'12/1/2017',
-                'end_data':'12/4/2017'
+                'end_data':'12/4/2017',
+                'dataSize':100,
+                'ID':2
               }
   DOT = {
-          'Data_ID':1,
+          'dataSourceID':1,
           'K_O':ownerPubKey.exportKey('PEM').decode(),
           'metadata':metadata,
           'DAT':'http://192.168.116.131:5000/data_object'
@@ -199,23 +215,18 @@ def send_msg5():
   privKey = loadPrivateKey()
   requesterPubKey = loadRequesterPublicKey()
   ownerPubKey = loadOwnerPublicKey()
+  ownerPubKey3 = loadOwnerPublicKey3()
 
-  device = {
-    'name':'Living room camera',
-    'type':'Camera',
-    'location':'Home'
-  }
-
-  deviceSummary = {
-  'access duration':'access to realtime data'
-  }
+  query = {'queryID':1}
 
   metadata =  { 'device_summary_ID':1,
                 'start_data':'12/1/2017',
-                'end_data':'12/4/2017'
+                'end_data':'12/4/2017',
+                'dataSize':100,
+                'ID':2
               }
   DOT = {
-          'Data_ID':1,
+          'dataSourceID':1,
           'K_O':ownerPubKey.exportKey('PEM').decode(),
           'metadata':metadata,
           'DAT':'http://192.168.116.131:5000/data_object'
@@ -226,8 +237,19 @@ def send_msg5():
   # signatureK_R = privKey.sign(requesterPubKey.exportKey('PEM'),32)
   # print(len(ownerPubKey.exportKey('PEM')))
   # print(pubKey.verify(requesterPubKey.exportKey('PEM'), signatureK_R))
+  
+  signatureK_O = privKey.sign(ownerPubKey.exportKey('PEM'),32)
+  signatureK_O3 = privKey.sign(ownerPubKey.exportKey('PEM'),32)
+  signatureK_R = privKey.sign(requesterPubKey.exportKey('PEM'),32)
+  signatureQuery = privKey.sign(str(query['queryID']),32)
+
   msg5 = {
+    'query':query,
     'DOT':DOT,
+    'signatureQuery':signatureQuery,
+    'signatureK_O':signatureK_O,
+    'signatureK_O3':signatureK_O3,
+    'signatureK_R':signatureK_R,
     'sourcePublicKey':pubKey.exportKey('PEM').decode()
   }
   
